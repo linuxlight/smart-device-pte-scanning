@@ -112,6 +112,7 @@ int damon_select_ops(struct damon_ctx *ctx, enum damon_ops_id id)
 	mutex_unlock(&damon_ops_lock);
 	return err;
 }
+EXPORT_SYMBOL(damon_select_ops);
 
 /*
  * Construct a damon_region struct
@@ -278,11 +279,13 @@ struct damos_filter *damos_new_filter(enum damos_filter_type type,
 	INIT_LIST_HEAD(&filter->list);
 	return filter;
 }
+EXPORT_SYMBOL(damos_new_filter);
 
 void damos_add_filter(struct damos *s, struct damos_filter *f)
 {
 	list_add_tail(&f->list, &s->filters);
 }
+EXPORT_SYMBOL(damos_add_filter);
 
 static void damos_del_filter(struct damos_filter *f)
 {
@@ -314,11 +317,13 @@ struct damos_quota_goal *damos_new_quota_goal(
 	INIT_LIST_HEAD(&goal->list);
 	return goal;
 }
+EXPORT_SYMBOL(damos_new_quota_goal);
 
 void damos_add_quota_goal(struct damos_quota *q, struct damos_quota_goal *g)
 {
 	list_add_tail(&g->list, &q->goals);
 }
+EXPORT_SYMBOL(damos_add_quota_goal);
 
 static void damos_del_quota_goal(struct damos_quota_goal *g)
 {
@@ -386,6 +391,7 @@ struct damos *damon_new_scheme(struct damos_access_pattern *pattern,
 
 	return scheme;
 }
+EXPORT_SYMBOL(damon_new_scheme);
 
 static void damos_set_next_apply_sis(struct damos *s, struct damon_ctx *ctx)
 {
@@ -448,11 +454,13 @@ struct damon_target *damon_new_target(void)
 
 	return t;
 }
+EXPORT_SYMBOL(damon_new_target);
 
 void damon_add_target(struct damon_ctx *ctx, struct damon_target *t)
 {
 	list_add_tail(&t->list, &ctx->adaptive_targets);
 }
+EXPORT_SYMBOL(damon_add_target);
 
 bool damon_targets_empty(struct damon_ctx *ctx)
 {
@@ -513,6 +521,7 @@ struct damon_ctx *damon_new_ctx(void)
 
 	return ctx;
 }
+EXPORT_SYMBOL(damon_new_ctx);
 
 static void damon_destroy_targets(struct damon_ctx *ctx)
 {
@@ -538,6 +547,7 @@ void damon_destroy_ctx(struct damon_ctx *ctx)
 
 	kfree(ctx);
 }
+EXPORT_SYMBOL(damon_destroy_ctx);
 
 static unsigned int damon_age_for_new_attrs(unsigned int age,
 		struct damon_attrs *old_attrs, struct damon_attrs *new_attrs)
@@ -644,6 +654,7 @@ int damon_set_attrs(struct damon_ctx *ctx, struct damon_attrs *attrs)
 
 	return 0;
 }
+EXPORT_SYMBOL(damon_set_attrs);
 
 /**
  * damon_set_schemes() - Set data access monitoring based operation schemes.
@@ -665,6 +676,7 @@ void damon_set_schemes(struct damon_ctx *ctx, struct damos **schemes,
 	for (i = 0; i < nr_schemes; i++)
 		damon_add_scheme(ctx, schemes[i]);
 }
+EXPORT_SYMBOL(damon_set_schemes);
 
 static struct damos_quota_goal *damos_nth_quota_goal(
 		int n, struct damos_quota *q)
@@ -998,6 +1010,7 @@ int damon_commit_ctx(struct damon_ctx *dst, struct damon_ctx *src)
 
 	return 0;
 }
+EXPORT_SYMBOL(damon_commit_ctx);
 
 /**
  * damon_nr_running_ctxs() - Return number of currently running contexts.
@@ -1057,6 +1070,11 @@ static int __damon_start(struct damon_ctx *ctx, int node)
 			err = PTR_ERR(ctx->kdamond);
 			ctx->kdamond = NULL;
 		} else {
+			if (node != NUMA_NO_NODE) {
+				cpumask_t mask;
+				cpumask_copy(&mask, cpumask_of_node(node));
+				set_cpus_allowed_ptr(ctx->kdamond, &mask);
+			}
 			wake_up_process(ctx->kdamond);
 			wait_for_completion(&ctx->kdamond_started);
 		}
@@ -1105,6 +1123,7 @@ int damon_start_on_node(struct damon_ctx **ctxs, int nr_ctxs, bool exclusive, in
 
 	return err;
 }
+EXPORT_SYMBOL(damon_start_on_node);
 
 
 /*
@@ -1149,6 +1168,7 @@ int damon_stop(struct damon_ctx **ctxs, int nr_ctxs)
 	}
 	return err;
 }
+EXPORT_SYMBOL(damon_stop);
 
 /*
  * Reset the aggregated monitoring results ('nr_accesses' of each region).
@@ -2137,6 +2157,7 @@ int damon_set_region_biggest_system_ram_default(struct damon_target *t,
 	addr_range.end = *end;
 	return damon_set_regions(t, &addr_range, 1);
 }
+EXPORT_SYMBOL(damon_set_region_biggest_system_ram_default);
 
 /*
  * damon_moving_sum() - Calculate an inferred moving sum value.

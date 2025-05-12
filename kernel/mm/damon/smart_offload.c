@@ -18,7 +18,7 @@
 #endif
 #define MODULE_PARAM_PREFIX "damon_smart_offload."
 
-#define SMART_OFFLOAD_NID 1
+#define SMART_OFFLOAD_EXEC_NID 1
 #define SMART_OFFLOAD_TARGET_NID 0
 
 /*
@@ -31,6 +31,17 @@
  * this.
  */
 static bool enabled __read_mostly;
+
+/*
+ * Enable or disable DAMON_LRU_SORT.
+ *
+ * You can enable DAMON_LRU_SORT by setting the value of this parameter as
+ * ``Y``.  Setting it as ``N`` disables DAMON_LRU_SORT.  Note that
+ * DAMON_LRU_SORT could do no real monitoring and LRU-lists sorting due to the
+ * watermarks-based activation condition.  Refer to below descriptions for the
+ * watermarks parameter for this.
+ */
+static int smart_offload_nid __read_mostly = SMART_OFFLOAD_EXEC_NID;
 
 /*
  * Make DAMON_RECLAIM reads the input parameters again, except ``enabled``.
@@ -108,8 +119,8 @@ static struct damon_attrs damon_smart_offload_mon_attrs = {
 	.sample_interval = 5000,	/* 5 ms */
 	.aggr_interval = 100000,	/* 100 ms */
 	.ops_update_interval = 0,
-	.min_nr_regions = 10,
-	.max_nr_regions = 1000,
+	.min_nr_regions = 10000,
+	.max_nr_regions = 20000,
 };
 DEFINE_DAMON_MODULES_MON_ATTRS_PARAMS(damon_smart_offload_mon_attrs);
 
@@ -184,6 +195,38 @@ static struct damos *damon_smart_offload_new_scheme(void)
 			SMART_OFFLOAD_TARGET_NID);
 }
 
+/*
+ * Allocate, set, and return a DAMON context for the PTE scanning.
+ * @ctxp:	Pointer to save the point to the newly created context
+ * @targetp:	Pointer to save the point to the newly created target
+ */
+static int damon_modules_new_pte_scan_ctx_target(struct damon_ctx **ctxp,
+		struct damon_target **targetp)
+{
+	struct damon_ctx *ctx;
+	struct damon_target *target;
+
+	ctx = damon_new_ctx();
+	if (!ctx)
+		return -ENOMEM;
+
+	if (damon_select_ops(ctx, DAMON_OPS_PTE_SCAN)) {
+		damon_destroy_ctx(ctx);
+		return -EINVAL;
+	}
+
+	target = damon_new_target();
+	if (!target) {
+		damon_destroy_ctx(ctx);
+		return -ENOMEM;
+	}
+	damon_add_target(ctx, target);
+
+	*ctxp = ctx;
+	*targetp = target;
+	return 0;
+}
+
 static int damon_smart_offload_apply_parameters(void)
 {
 	struct damon_ctx *param_ctx;
@@ -193,7 +236,7 @@ static int damon_smart_offload_apply_parameters(void)
 	struct damos_filter *filter;
 	int err;
 
-	err = damon_modules_new_paddr_ctx_target(&param_ctx, &param_target);
+	err = damon_modules_new_pte_scan_ctx_target(&param_ctx, &param_target);
 	if (err)
 		return err;
 
@@ -256,7 +299,7 @@ static int damon_smart_offload_turn(bool on)
 	if (err)
 		return err;
 
-	err = damon_start_on_node(&ctx, 1, true, SMART_OFFLOAD_NID);
+	err = damon_start_on_node(&ctx, 1, true, smart_offload_nid);
 	if (err)
 		return err;
 	kdamond_pid = ctx->kdamond->pid;
@@ -299,6 +342,32 @@ module_param_cb(enabled, &enabled_param_ops, &enabled, 0600);
 MODULE_PARM_DESC(enabled,
 	"Enable or disable DAMON_SMART_OFFLOAD (default: disabled)");
 
+static int damon_smart_offload_numa_node_store(const char *val,
+		const struct kernel_param *kp)
+{
+	int new_nid;
+	int err;
+
+	err = kstrtoint(val, 10, &new_nid);
+	if (err)
+		return err;
+
+	if (enabled)
+		return -EBUSY;
+
+	smart_offload_nid = new_nid;
+	return err;
+}
+
+static const struct kernel_param_ops numa_node_param_ops = {
+	.set = damon_smart_offload_numa_node_store,
+	.get = param_get_int,
+};
+
+module_param_cb(numa_node, &numa_node_param_ops, &smart_offload_nid, 0600);
+MODULE_PARM_DESC(numa_node,
+	"Set DAMON_SMART_OFFLOAD nid (default: 0)");
+
 static int damon_smart_offload_handle_commit_inputs(void)
 {
 	int err;
@@ -329,7 +398,7 @@ static int damon_smart_offload_after_wmarks_check(struct damon_ctx *c)
 
 static int __init damon_smart_offload_init(void)
 {
-	int err = damon_modules_new_paddr_ctx_target(&ctx, &target);
+	int err = damon_modules_new_pte_scan_ctx_target(&ctx, &target);
 
 	if (err)
 		return err;
@@ -344,4 +413,12 @@ static int __init damon_smart_offload_init(void)
 	return err;
 }
 
+static void __exit damon_smart_offload_exit(void) {
+	if (enabled)
+		damon_smart_offload_turn(false);
+}
+
 module_init(damon_smart_offload_init);
+module_exit(damon_smart_offload_exit);
+
+MODULE_LICENSE("GPL");
