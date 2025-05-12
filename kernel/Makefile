@@ -2,7 +2,7 @@
 VERSION = 6
 PATCHLEVEL = 11
 SUBLEVEL = 9
-EXTRAVERSION =
+EXTRAVERSION =-smart-offload
 NAME = Baby Opossum Posse
 
 # *DOCUMENTATION*
