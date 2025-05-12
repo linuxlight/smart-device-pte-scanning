@@ -27,3 +27,42 @@ $ sudo update-grub
 ```bash
 $ sudo swapoff -a
 ```
+
+## Enable Smart Offload Kernel Module
+
+1. Build kernel module:
+```bash
+$ cd kernel/mm/damon
+$ make
+```
+2. Insert kernel module:
+```bash
+$ sudo insmod offload.ko
+```
+
+3. Pin offloading kernel thread to NUMA node `N`
+```bash
+$ sudo sh -c 'echo `node_id` > /sys/module/offload/parameters/damon_smart_offload.numa_node'
+```
+
+4. Enable smart offloading kernel thread
+```bash
+$ sudo sh -c 'echo Y > /sys/module/offload/parameters/damon_smart_offload.enabled'
+```
+
+## Adjusting Kernel Module Parameters
+
+### Sampling Intervals
+```bash
+$ sudo sh -c 'echo `interval` > /sys/module/offload/parameters/damon_smart_offload.sample_interval'
+$ sudo cat /sys/module/offload/parameters/damon_smart_offload.sample_interval
+```
+
+### Min-Max Regions
+```bash
+$ sudo sh -c 'echo `min` > /sys/module/offload/parameters/damon_smart_offload.min_nr_regions'
+$ sudo sh -c 'echo `max` > /sys/module/offload/parameters/damon_smart_offload.max_nr_regions'
+$ sudo cat /sys/module/offload/parameters/damon_smart_offload.min_nr_regions
+$ sudo cat /sys/module/offload/parameters/damon_smart_offload.max_nr_regions
+```
+
