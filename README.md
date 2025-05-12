@@ -40,7 +40,7 @@ $ make
 $ sudo insmod offload.ko
 ```
 
-3. Pin offloading kernel thread to NUMA node `N`
+3. Pin offloading kernel thread to NUMA node `node_id`
 ```bash
 $ sudo sh -c 'echo `node_id` > /sys/module/offload/parameters/damon_smart_offload.numa_node'
 ```
@@ -49,6 +49,28 @@ $ sudo sh -c 'echo `node_id` > /sys/module/offload/parameters/damon_smart_offloa
 ```bash
 $ sudo sh -c 'echo Y > /sys/module/offload/parameters/damon_smart_offload.enabled'
 ```
+
+5. Disble smart offloading kernel thread
+```bash
+$ sudo sh -c 'echo N > /sys/module/offload/parameters/damon_smart_offload.enabled'
+```
+
+## Microbenchmark
+
+### Baseline
+```bash
+$ cd benchmark
+$ ./baseline.sh
+$ python3 avg_cycles.py
+```
+
+### Proposal
+```bash
+$ cd benchmark
+$ ./proposal.sh
+$ python3 avg_cycles.py
+```
+
 
 ## Adjusting Kernel Module Parameters
 
